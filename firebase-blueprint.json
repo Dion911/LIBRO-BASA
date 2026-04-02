@@ -1,0 +1,65 @@
+{
+  "entities": {
+    "Book": {
+      "title": "Book",
+      "description": "A book entry in the user's library",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "status": { "type": "string", "enum": ["to-read", "reading", "finished", "dropped"] },
+        "rating": { "type": "number" },
+        "coverUrl": { "type": "string" },
+        "totalPages": { "type": "number" },
+        "currentPage": { "type": "number" },
+        "genre": { "type": "string" },
+        "publicationDate": { "type": "string" },
+        "isbn": { "type": "string" },
+        "publisher": { "type": "string" },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "content": { "type": "string" },
+              "page": { "type": "number" },
+              "date": { "type": "string" }
+            },
+            "required": ["id", "content", "page", "date"]
+          }
+        },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "title", "status", "createdAt", "updatedAt"]
+    },
+    "ReadingSession": {
+      "title": "ReadingSession",
+      "description": "A reading session log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "bookId": { "type": "string" },
+        "date": { "type": "string" },
+        "pagesRead": { "type": "number" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "bookId", "date", "pagesRead", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/books/{bookId}": {
+      "schema": { "$ref": "#/entities/Book" },
+      "description": "Books owned by a specific user"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/ReadingSession" },
+      "description": "Reading sessions logged by a specific user"
+    }
+  }
+}

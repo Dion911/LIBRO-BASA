@@ -1,0 +1,121 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.cdnfonts.com/css/ds-digital');
+
+:root {
+  --braun-bg: #F0F0F0;
+  --braun-panel: #E0E0E0;
+  --braun-ink: #1A1A1A;
+  --braun-accent: #FF6321;
+}
+
+.dark {
+  --braun-bg: transparent;
+  --braun-panel: rgba(255, 255, 255, 0.4);
+  --braun-ink: #1E293B;
+  --braun-accent: #FF6321;
+}
+
+.dark.min-h-screen {
+  background: linear-gradient(135deg, #D1F2EB 0%, #A9C9FF 100%);
+  background-attachment: fixed;
+}
+
+@theme {
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-digital: "DS-Digital", monospace;
+  --font-space: "Space Mono", monospace;
+  --color-braun-bg: var(--braun-bg);
+  --color-braun-panel: var(--braun-panel);
+  --color-braun-ink: var(--braun-ink);
+  --color-braun-accent: var(--braun-accent);
+}
+
+@layer base {
+  body {
+    @apply bg-braun-bg text-braun-ink font-sans antialiased transition-colors duration-500;
+  }
+}
+
+.analog-inset {
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.analog-button {
+  @apply bg-braun-bg border border-braun-panel shadow-[0_2px_0_var(--braun-panel)] active:shadow-none active:translate-y-[2px] transition-all;
+}
+
+/* Custom Scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--braun-panel);
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--braun-accent);
+}
+
+.dot-pattern {
+  background-image: radial-gradient(var(--braun-ink) 1px, transparent 1px);
+  background-size: 8px 8px;
+  opacity: 0.15;
+}
+
+.lcd-display {
+  @apply bg-[#C5C9B8] text-[#2D3027] font-mono p-4 rounded-sm shadow-inner border border-[#A5A998] transition-all duration-500 relative overflow-hidden;
+}
+
+.dark .lcd-display {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #1E293B;
+  border-color: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.dark .analog-button {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #1E293B;
+}
+
+.dark .dot-pattern {
+  opacity: 0.05;
+}
+
+.lcd-scanline {
+  background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.02) 50%);
+  background-size: 100% 4px;
+}
+
+.dark .lcd-scanline {
+  background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.01) 50%);
+  background-size: 100% 4px;
+}
+
+.grid-background {
+  background-image: 
+    linear-gradient(to right, var(--braun-panel) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--braun-panel) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.05;
+}
+
+.orange-glow {
+  box-shadow: 0 0 15px rgba(255, 99, 33, 0.4);
+}
+
+.dark .orange-glow {
+  box-shadow: 0 0 15px rgba(255, 99, 33, 0.3);
+}
+

@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{userId}/books
+    // Document ID: {bookId}
+    // Fields:
+    //   - id: string (required)
+    //   - userId: string (required, immutable)
+    //   - title: string (required, max 200 chars)
+    //   - author: string (optional, max 100 chars)
+    //   - status: string (required, enum: 'to-read', 'reading', 'finished', 'dropped')
+    //   - rating: number (optional, 0-5)
+    //   - coverUrl: string (optional, max 1000 chars)
+    //   - totalPages: number (optional, >= 0)
+    //   - currentPage: number (optional, >= 0)
+    //   - genre: string (optional, max 50 chars)
+    //   - publicationDate: string (optional, max 50 chars)
+    //   - isbn: string (optional, max 50 chars)
+    //   - publisher: string (optional, max 100 chars)
+    //   - notes: list (optional, max 100 items)
+    //   - createdAt: number (required, immutable)
+    //   - updatedAt: number (required)
+    //
+    // Collection: users/{userId}/sessions
+    // Document ID: {sessionId}
+    // Fields:
+    //   - id: string (required)
+    //   - userId: string (required, immutable)
+    //   - bookId: string (required, max 100 chars)
+    //   - date: string (required, max 50 chars)
+    //   - pagesRead: number (required, >= 0)
+    //   - notes: string (optional, max 1000 chars)
+    //   - createdAt: number (required, immutable)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    
+    function isValidString(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+             request.resource.data[field].size() >= minLen &&
+             request.resource.data[field].size() <= maxLen;
+    }
+    
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+             (request.resource.data[field] is string &&
+              request.resource.data[field].size() >= minLen &&
+              request.resource.data[field].size() <= maxLen);
+    }
+    
+    function isValidOptionalNumber(field, minVal, maxVal) {
+      return !(field in request.resource.data) ||
+             (request.resource.data[field] is number &&
+              request.resource.data[field] >= minVal &&
+              request.resource.data[field] <= maxVal);
+    }
+    
+    function isImmutable(field) {
+      return !(field in request.resource.data) || request.resource.data[field] == resource.data[field];
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidBook() {
+      let data = request.resource.data;
+      return hasRequiredFields(['id', 'userId', 'title', 'status', 'createdAt', 'updatedAt']) &&
+             isValidString('id', 1, 100) &&
+             isValidString('userId', 1, 100) &&
+             data.userId == request.auth.uid &&
+             isValidString('title', 1, 200) &&
+             data.status in ['to-read', 'reading', 'finished', 'dropped'] &&
+             data.createdAt is number &&
+             data.updatedAt is number &&
+             isValidOptionalString('author', 0, 100) &&
+             isValidOptionalNumber('rating', 0, 5) &&
+             isValidOptionalString('coverUrl', 0, 1000000) &&
+             isValidOptionalNumber('totalPages', 0, 10000) &&
+             isValidOptionalNumber('currentPage', 0, 10000) &&
+             isValidOptionalString('genre', 0, 50) &&
+             isValidOptionalString('publicationDate', 0, 50) &&
+             isValidOptionalString('isbn', 0, 50) &&
+             isValidOptionalString('publisher', 0, 100) &&
+             isValidOptionalString('dateAdded', 0, 50) &&
+             isValidOptionalString('dateStarted', 0, 50) &&
+             isValidOptionalString('dateFinished', 0, 50) &&
+             isValidOptionalString('estimatedFinishDate', 0, 50) &&
+             (!( 'notes' in data ) || (data.notes is list && data.notes.size() <= 100));
+    }
+
+    function isValidSession() {
+      let data = request.resource.data;
+      return hasRequiredFields(['id', 'userId', 'bookId', 'date', 'pagesRead', 'createdAt']) &&
+             isValidString('id', 1, 100) &&
+             isValidString('userId', 1, 100) &&
+             data.userId == request.auth.uid &&
+             isValidString('bookId', 1, 100) &&
+             isValidString('date', 1, 50) &&
+             data.pagesRead is number &&
+             data.pagesRead >= 0 &&
+             data.createdAt is number &&
+             isValidOptionalString('notes', 0, 1000);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId}/books/{bookId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidBook();
+      allow update: if isOwner(userId) && isValidBook() && isImmutable('userId') && isImmutable('createdAt');
+      allow delete: if isOwner(userId);
+    }
+
+    match /users/{userId}/sessions/{sessionId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidSession();
+      allow update: if isOwner(userId) && isValidSession() && isImmutable('userId') && isImmutable('createdAt');
+      allow delete: if isOwner(userId);
+    }
+  }
+}
