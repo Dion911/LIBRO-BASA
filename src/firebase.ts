@@ -7,26 +7,16 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
-// Handle redirect sign-in result on page load (needed for mobile)
-getRedirectResult(auth).catch((error) => {
-  console.error("Redirect sign-in error:", error);
-});
-
-const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
-
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   try {
-    if (isMobile) {
-      await signInWithRedirect(auth, provider);
-    } else {
-      await signInWithPopup(auth, provider);
-    }
+    await signInWithPopup(auth, provider);
   } catch (error: any) {
     console.error("Error signing in with Google", error);
     throw error;
   }
 };
+
 
 export const logout = async () => {
   try {
