@@ -498,7 +498,7 @@ export default function App() {
               <div className="w-full mb-8">
                 <div className="relative w-full h-48 md:h-72 bg-braun-panel/20 overflow-hidden border-y border-braun-ink/10">
                   <video 
-                    src="/Animated_Books_Come_to_Life.mp4" 
+                    src="/LIBRO-BASA/Animated_Books_Come_to_Life.mp4"
                     autoPlay 
                     loop 
                     muted 
