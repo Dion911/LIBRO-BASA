@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Book, BookStatus, BookNote } from '../types';
-import { X, Save, BookOpen, User, Image as ImageIcon, Hash, Tag, Star, Plus, MessageSquare, Upload, Calendar, Barcode, Building2 } from 'lucide-react';
+import { X, Save, BookOpen, User, Image as ImageIcon, Hash, Tag, Star, Plus, MessageSquare, Upload, Calendar, Barcode, Building2, Search, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface BookModalProps {
@@ -29,6 +29,47 @@ export const BookModal = ({ isOpen, onClose, onSave, initialBook }: BookModalPro
   const [newNote, setNewNote] = useState('');
   const [notePage, setNotePage] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
+  const searchBook = async () => {
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    try {
+      const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchQuery)}`);
+      const data = await response.json();
+      if (data.items && data.items.length > 0) {
+        const bookInfo = data.items[0].volumeInfo;
+        
+        let coverUrl = '';
+        if (bookInfo.imageLinks) {
+          coverUrl = bookInfo.imageLinks.thumbnail || bookInfo.imageLinks.smallThumbnail || '';
+          // Upgrade to https and remove curl for better display
+          coverUrl = coverUrl.replace('http:', 'https:').replace('&edge=curl', '');
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          title: bookInfo.title || prev.title,
+          author: bookInfo.authors ? bookInfo.authors.join(', ') : prev.author,
+          coverUrl: coverUrl || prev.coverUrl,
+          totalPages: bookInfo.pageCount || prev.totalPages,
+          genre: bookInfo.categories ? bookInfo.categories[0] : prev.genre,
+          publicationDate: bookInfo.publishedDate || prev.publicationDate,
+          publisher: bookInfo.publisher || prev.publisher,
+          isbn: bookInfo.industryIdentifiers ? bookInfo.industryIdentifiers.find((id: any) => id.type === 'ISBN_13')?.identifier || bookInfo.industryIdentifiers[0]?.identifier || prev.isbn : prev.isbn,
+        }));
+        setSearchQuery(''); // clear after success
+      } else {
+        alert('No books found matching that query.');
+      }
+    } catch (error) {
+      console.error('Error searching for book:', error);
+      alert('Failed to search for the book. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const handleFileUpload = (file: File) => {
     if (!file.type.startsWith('image/')) return;
@@ -136,6 +177,32 @@ export const BookModal = ({ isOpen, onClose, onSave, initialBook }: BookModalPro
             </div>
 
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-10 scrollbar-hide">
+              {/* Auto-fill Search */}
+              <div className="bg-braun-panel/5 border border-braun-panel p-4 flex gap-3 items-center">
+                <Search className="w-4 h-4 text-braun-ink/50" />
+                <input 
+                  type="text" 
+                  placeholder="AUTO_FILL_BY_TITLE_OR_ISBN..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      searchBook();
+                    }
+                  }}
+                  className="flex-1 bg-transparent text-xs font-mono outline-none placeholder:text-braun-ink/40"
+                />
+                <button
+                  type="button"
+                  onClick={searchBook}
+                  disabled={isSearching || !searchQuery.trim()}
+                  className="bg-braun-accent text-white px-4 py-2 text-[10px] font-mono uppercase tracking-widest disabled:opacity-50 transition-opacity whitespace-nowrap"
+                >
+                  {isSearching ? <Loader2 className="w-3 h-3 animate-spin" /> : 'SEARCH'}
+                </button>
+              </div>
+
               {/* Core Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">

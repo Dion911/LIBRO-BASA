@@ -50,6 +50,16 @@
         "createdAt": { "type": "number" }
       },
       "required": ["id", "userId", "bookId", "date", "pagesRead", "createdAt"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User preferences",
+      "type": "object",
+      "properties": {
+        "readingReminders": { "type": "boolean" },
+        "reminderFrequency": { "type": "string", "enum": ["daily", "weekly"] },
+        "pushEnabled": { "type": "boolean" }
+      }
     }
   },
   "firestore": {
@@ -60,6 +70,10 @@
     "/users/{userId}/sessions/{sessionId}": {
       "schema": { "$ref": "#/entities/ReadingSession" },
       "description": "Reading sessions logged by a specific user"
+    },
+    "/users/{userId}/settings/preferences": {
+      "schema": { "$ref": "#/entities/UserSettings" },
+      "description": "Preferences for a specific user"
     }
   }
 }

@@ -140,5 +140,9 @@ service cloud.firestore {
       allow update: if isOwner(userId) && isValidSession() && isImmutable('userId') && isImmutable('createdAt');
       allow delete: if isOwner(userId);
     }
+
+    match /users/{userId}/settings/{settingId} {
+      allow read, write: if isOwner(userId);
+    }
   }
 }

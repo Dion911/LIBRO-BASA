@@ -54,3 +54,9 @@ export interface UserStats {
   booksFinished: number;
   pagesRead: number;
 }
+
+export interface UserSettings {
+  readingReminders: boolean;
+  reminderFrequency: 'daily' | 'weekly';
+  pushEnabled: boolean;
+}

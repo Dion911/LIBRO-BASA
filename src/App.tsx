@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { Book, BookStatus, ReadingSession, UserStats, BookList } from './types';
 import { BookCard } from './components/BookCard';
 import { BookModal } from './components/BookModal';
+import { SettingsModal } from './components/SettingsModal';
 import { StatsView } from './components/StatsView';
 import { LogView } from './components/LogView';
 import { ListsView } from './components/ListsView';
 import { ProgressIndicator } from './components/ProgressIndicator';
-import { Plus, Search, Library, LayoutGrid, ListTodo, BarChart3, History, X, Moon, Sun, LogOut, LogIn } from 'lucide-react';
+import { Plus, Search, Library, LayoutGrid, ListTodo, BarChart3, History, X, Moon, Sun, LogOut, LogIn, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -15,6 +16,10 @@ import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from '
 type NavTab = 'shelf' | 'log' | 'stats' | 'lists';
 
 import { Logo } from './components/Logo';
+
+const stripUndefined = <T extends Record<string, any>>(obj: T): T => {
+  return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined)) as T;
+};
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -44,6 +49,14 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<BookStatus | 'all'>('all');
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+    readingReminders: false,
+    reminderFrequency: 'daily',
+    pushEnabled: false
+  });
+  const [showReminderToast, setShowReminderToast] = useState(false);
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('libro-dark-mode');
     return saved === 'true';
@@ -84,9 +97,19 @@ export default function App() {
       handleFirestoreError(error, OperationType.GET, `users/${user.uid}/sessions`);
     });
 
+    const settingsRef = doc(db, `users/${user.uid}/settings/preferences`);
+    const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setUserSettings(docSnap.data() as UserSettings);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${user.uid}/settings/preferences`);
+    });
+
     return () => {
       unsubscribeBooks();
       unsubscribeSessions();
+      unsubscribeSettings();
     };
   }, [user, isAuthReady]);
 
@@ -102,6 +125,36 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('libro-lists', JSON.stringify(lists));
   }, [lists]);
+
+  useEffect(() => {
+    if (!userSettings.readingReminders || sessions.length === 0) {
+      setShowReminderToast(false);
+      return;
+    }
+
+    const checkReminders = () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const latestSessionDate = new Date(sessions[0].createdAt);
+      latestSessionDate.setHours(0, 0, 0, 0);
+      
+      const diffTime = today.getTime() - latestSessionDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (userSettings.reminderFrequency === 'daily') {
+        setShowReminderToast(diffDays > 0);
+      } else { // weekly
+        setShowReminderToast(diffDays > 7);
+      }
+    };
+
+    checkReminders();
+    
+    // Check again every hour
+    const interval = setInterval(checkReminders, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [userSettings, sessions]);
 
   const filteredBooks = useMemo(() => {
     return books.filter(book => {
@@ -158,7 +211,7 @@ export default function App() {
     try {
       if (editingBook) {
         const updatedBook = { ...editingBook, ...bookData, updatedAt: Date.now() };
-        await setDoc(doc(db, `users/${user.uid}/books`, editingBook.id), updatedBook);
+        await setDoc(doc(db, `users/${user.uid}/books`, editingBook.id), stripUndefined(updatedBook));
       } else {
         const newId = crypto.randomUUID();
         const newBook: Book = {
@@ -180,7 +233,7 @@ export default function App() {
           createdAt: Date.now(),
           updatedAt: Date.now()
         };
-        await setDoc(doc(db, `users/${user.uid}/books`, newId), newBook);
+        await setDoc(doc(db, `users/${user.uid}/books`, newId), stripUndefined(newBook));
       }
       setEditingBook(null);
     } catch (error) {
@@ -200,7 +253,7 @@ export default function App() {
         notes,
         createdAt: Date.now()
       };
-      await setDoc(doc(db, `users/${user.uid}/sessions`, id), newSession);
+      await setDoc(doc(db, `users/${user.uid}/sessions`, id), stripUndefined(newSession));
       
       // Update book progress
       const book = books.find(b => b.id === bookId);
@@ -214,7 +267,7 @@ export default function App() {
           dateFinished: isFinished ? new Date().toISOString() : book.dateFinished,
           updatedAt: Date.now()
         };
-        await setDoc(doc(db, `users/${user.uid}/books`, bookId), updatedBook);
+        await setDoc(doc(db, `users/${user.uid}/books`, bookId), stripUndefined(updatedBook));
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/sessions`);
@@ -239,7 +292,7 @@ export default function App() {
           status: book.status === 'finished' && book.totalPages && newPage < book.totalPages ? 'reading' : book.status,
           updatedAt: Date.now()
         };
-        await setDoc(doc(db, `users/${user.uid}/books`, book.id), updatedBook);
+        await setDoc(doc(db, `users/${user.uid}/books`, book.id), stripUndefined(updatedBook));
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}/sessions/${sessionId}`);
@@ -255,7 +308,7 @@ export default function App() {
 
     try {
       const updatedSession = { ...session, pagesRead: newPages, notes: newNotes };
-      await setDoc(doc(db, `users/${user.uid}/sessions`, sessionId), updatedSession);
+      await setDoc(doc(db, `users/${user.uid}/sessions`, sessionId), stripUndefined(updatedSession));
 
       // Update book progress
       const book = books.find(b => b.id === session.bookId);
@@ -269,7 +322,7 @@ export default function App() {
           dateFinished: isFinished ? (book.dateFinished || new Date().toISOString()) : undefined,
           updatedAt: Date.now()
         };
-        await setDoc(doc(db, `users/${user.uid}/books`, book.id), updatedBook);
+        await setDoc(doc(db, `users/${user.uid}/books`, book.id), stripUndefined(updatedBook));
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/sessions/${sessionId}`);
@@ -303,7 +356,7 @@ export default function App() {
         dateFinished: status === 'finished' ? new Date().toISOString() : book.dateFinished,
         updatedAt: Date.now()
       };
-      await setDoc(doc(db, `users/${user.uid}/books`, id), updatedBook);
+      await setDoc(doc(db, `users/${user.uid}/books`, id), stripUndefined(updatedBook));
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/books/${id}`);
     }
@@ -378,9 +431,23 @@ export default function App() {
         notes: [newNote, ...(book.notes || [])],
         updatedAt: Date.now()
       };
-      await setDoc(doc(db, `users/${user.uid}/books`, bookId), updatedBook);
+      await setDoc(doc(db, `users/${user.uid}/books`, bookId), stripUndefined(updatedBook));
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/books/${bookId}`);
+    }
+  };
+
+  const handleSaveSettings = async (newSettings: UserSettings) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, `users/${user.uid}/settings`, 'preferences'), stripUndefined(newSettings));
+      setUserSettings(newSettings);
+      
+      if (newSettings.pushEnabled && Notification.permission !== 'granted') {
+          Notification.requestPermission();
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}/settings/preferences`);
     }
   };
 
@@ -469,6 +536,13 @@ export default function App() {
               {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
             <button 
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="w-10 h-10 analog-button flex items-center justify-center rounded-full hover:text-braun-accent transition-colors"
+              title="Settings"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+            <button 
               onClick={logout}
               className="w-10 h-10 analog-button flex items-center justify-center rounded-full hover:text-red-500 transition-colors"
               title="Sign Out"
@@ -485,6 +559,38 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="px-6 max-w-7xl mx-auto min-h-[60vh]">
+        <AnimatePresence>
+          {showReminderToast && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              className="mb-8"
+            >
+              <div className="bg-braun-accent text-white p-4 border-l-4 border-braun-bg/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
+                <div className="absolute inset-0 dot-pattern opacity-10 pointer-events-none" />
+                <div className="relative z-10 flex gap-3 items-center">
+                  <div className="p-2 bg-white/10 rounded-full">
+                    <Library className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs uppercase tracking-widest mb-1">Time to Read!</h4>
+                    <p className="text-[10px] font-mono tracking-wider opacity-80">
+                      You haven't read {userSettings.reminderFrequency === 'daily' ? 'today' : 'in the last 7 days'}. Maintain your habit!
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowReminderToast(false)}
+                  className="relative z-10 text-white/50 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <AnimatePresence mode="wait">
           {navTab === 'shelf' && (
             <motion.div 
@@ -498,7 +604,7 @@ export default function App() {
               <div className="w-full mb-8">
                 <div className="relative w-full h-48 md:h-72 bg-braun-panel/20 overflow-hidden border-y border-braun-ink/10">
                   <video 
-                    src="/LIBRO-BASA/Animated_Books_Come_to_Life.mp4"
+                    src="/Animated_Books_Come_to_Life.mp4" 
                     autoPlay 
                     loop 
                     muted 
@@ -729,6 +835,13 @@ export default function App() {
         onClose={() => { setIsModalOpen(false); setEditingBook(null); }}
         onSave={handleAddBook}
         initialBook={editingBook}
+      />
+
+      <SettingsModal 
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        settings={userSettings}
+        onSave={handleSaveSettings}
       />
 
       {/* List Creation Modal */}

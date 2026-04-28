@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -16,7 +16,6 @@ export const loginWithGoogle = async () => {
     throw error;
   }
 };
-
 
 export const logout = async () => {
   try {
@@ -74,6 +73,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
+  alert(`Database Error:\n${errInfo.error}\nPath: ${path}`);
   throw new Error(JSON.stringify(errInfo));
 }
 
